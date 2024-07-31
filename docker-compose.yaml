@@ -1,13 +1,52 @@
-version: "3"
-
 services:
-  quickpizza:
-    image: ghcr.io/grafana/quickpizza-local:latest
+
+  # test apps
+
+  control-app:
+    container_name: control-app
+    build:
+      context: ./test-apps
+    environment:
+      NODE_ENV: production
+      SCRIPT_NAME: control-app
     ports:
-      - 3333:3333
+      - 4000:4000
+
+  high-latency-app:
+    container_name: high-latency-app
+    build:
+      context: ./test-apps
+    environment:
+      NODE_ENV: production
+      SCRIPT_NAME: high-latency-app
+    ports:
+      - 4001:4000
+
+  high-cpu-app:
+    container_name: high-cpu-app
+    build:
+      context: ./test-apps
+    environment:
+      NODE_ENV: production
+      SCRIPT_NAME: high-cpu-app
+    ports:
+      - 4002:4000
+
+  memory-leak-app:
+    container_name: memory-leak-app
+    build:
+      context: ./test-apps
+    environment:
+      NODE_ENV: production
+      SCRIPT_NAME: memory-leak-app
+    ports:
+      - 4003:4000
+
+  # tooling
 
   prometheus:
     image: prom/prometheus:latest
+    container_name: prometheus
     ports:
       - 9090:9090
     command:
@@ -20,6 +59,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
+    container_name: grafana
     restart: always
     ports:
       - 3000:3000
@@ -29,7 +69,24 @@ services:
       - GF_AUTH_BASIC_ENABLED=false
     volumes:
       - ./config/grafana:/etc/grafana/provisioning/
-  
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
+    container_name: cadvisor
+    restart: unless-stopped
+    privileged: true
+    ports:
+      - 8080:8080
+    volumes:
+      - /:/rootfs:ro
+      # the below line is from https://prometheus.io/docs/guides/cadvisor/
+      # but had to be fixed as suggested: here https://github.com/google/cadvisor/issues/1565#issuecomment-718812180
+      # TODO might be good to make a PR to improve the original guide
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+
 networks:
   default:
     name: default_network
